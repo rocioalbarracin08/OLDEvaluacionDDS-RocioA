@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>body { margin: 0; padding: 0; }</style>
+</head>
+<body>
+  <div id="status">Listo</div>
+  
+<script>
+  let reconocedor;
+  let estaActivo = false;
+
+  function inicializarReconocedor() {
+    try {
+      reconocedor = new (window.SpeechRecognition || window.webkitSpeechRecognition || window.mozSpeechRecognition)();
+      reconocedor.lang = 'es-AR';
+      reconocedor.continuous = true;
+      reconocedor.interimResults = false; 
+      
+      document.getElementById('status').textContent = 'Reconocedor listo';
+      
+      return true;
+    } catch (e) {
+      document.getElementById('status').textContent = 'Error: ' + e;
+      return false;
+    }
+  }
+
+  if (inicializarReconocedor()) {
+    reconocedor.onstart = () => {
+      document.getElementById('status').textContent = '🎤 ESCUCHANDO...';
+      window.ReactNativeWebView.postMessage(JSON.stringify({ tipo: 'status', texto: 'escuchando' }));
+    };
+
+    reconocedor.onresult = (evento) => {
+      for (let i = evento.resultIndex; i < evento.results.length; i++) {
+        const texto = evento.results[i][0].transcript.trim();
+        if (texto) {
+          document.getElementById('status').textContent = 'Texto: ' + texto;
+          window.ReactNativeWebView.postMessage(
+            JSON.stringify({ tipo: 'resultado', texto: texto })
+          );
+        }
+      }
+    };
+
+    reconocedor.onerror = (evento) => {
+      console.log('❌ Error:', evento.error);
+      document.getElementById('status').textContent = 'Error: ' + evento.error;
+      // Reiniciar en 2s
+      setTimeout(() => {
+        if (estaActivo) reconocedor.start();
+      }, 2000);
+    };
+
+    reconocedor.onend = () => {
+      document.getElementById('status').textContent = 'Paró';
+      if (estaActivo) {
+        setTimeout(() => reconocedor.start(), 500);
+      }
+    };
+  }
+
+  window.addEventListener('message', (evento) => {
+    try {
+      const datos = JSON.parse(evento.data);
+      console.log('Mensaje recibido:', datos.accion);
+      
+      if (datos.accion === 'iniciar') {
+        estaActivo = true;
+        document.getElementById('status').textContent = 'Iniciando...';
+        setTimeout(() => {
+          if (reconocedor) reconocedor.start();
+        }, 500);
+      } 
+      else if (datos.accion === 'detener') {
+        estaActivo = false;
+        if (reconocedor) reconocedor.stop();
+        document.getElementById('status').textContent = 'Detenido';
+      }
+    } catch (e) {
+      console.log('Error mensaje:', e);
+    }
+  });
+
+  setTimeout(() => {
+    window.ReactNativeWebView.postMessage(
+      JSON.stringify({ tipo: 'ready', texto: 'WebView lista' })
+    );
+  }, 1000);
+</script>
+</body>
+</html>

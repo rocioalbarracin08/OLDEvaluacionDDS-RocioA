@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated } from 'react-native';
-import { INTERVALO_CAMBIO_LETRAS_MS } from '../datos/configuracionNiveles';
-import { generarLetrasAleatorias } from '../datos/configuracionNiveles';
+import { generarLetrasAleatorias, INTERVALO_CAMBIO_LETRAS_MS } from '../datos/configuracionNiveles';
 
 export interface LetraFlotante {
   id: number;

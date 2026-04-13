@@ -11,19 +11,31 @@ export const VELOCIDAD_REVELADO_MS = 500;
 export const SEGUNDOS_CUENTA_REGRESIVA = 5;
 export const INTERVALO_CAMBIO_LETRAS_MS = 3000;
 
-const TODAS_LAS_LETRAS = 'ABCDEGHIJKLMNOPRSTUVWYZ';
+export const POSICIONES_ALREDEDOR_RECTANGULO = [
+  { top: 20,  left: 20,  rotacion: -25 },
+  { top: 20,  left: 290, rotacion: 15  },
+  { top: 180, left: 5,   rotacion: 20  },
+  { top: 180, left: 310, rotacion: -10 },
+  { top: 360, left: 150, rotacion: -18 },
+];
 
-export const generarPosicionAleatoria = () => ({
-  top:      Math.random() * 340,
-  left:     Math.random() * 280,
-  rotacion: Math.random() * 60 - 30,
-});
+const TODAS_LAS_LETRAS = 'ABCDEGHIJKLMNOPRSTUVWYZ'.split('');
 
-export const generarLetrasAleatorias = (letrasProhibidas: string[], cantidad: number) =>
-  Array.from({ length: cantidad }, (_, i) => ({
+export const elegirLetrasAleatorias = (cantidad: number): string[] => {
+  const mezcladas = [...TODAS_LAS_LETRAS].sort(() => Math.random() - 0.5);
+  return mezcladas.slice(0, cantidad);
+};
+
+export const generarLetrasAleatorias = (letrasProhibidas: string[], cantidad: number) => {
+  const posicionesmezcladas = [...POSICIONES_ALREDEDOR_RECTANGULO]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, cantidad);
+
+  return letrasProhibidas.slice(0, cantidad).map((letra, i) => ({
     id:       i,
-    letra:    letrasProhibidas[i] ?? TODAS_LAS_LETRAS.split('').filter(
-                (l) => !letrasProhibidas.includes(l)
-              )[Math.floor(Math.random() * (TODAS_LAS_LETRAS.length - letrasProhibidas.length))],
-    ...generarPosicionAleatoria(),
+    letra,
+    top:      posicionesmezcladas[i].top,
+    left:     posicionesmezcladas[i].left,
+    rotacion: posicionesmezcladas[i].rotacion,
   }));
+};
