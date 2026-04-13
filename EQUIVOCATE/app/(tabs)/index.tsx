@@ -28,6 +28,8 @@ export default function PaginaEquivocate() {
     desactivarMicrofono,
   } = useJuego();
 
+  
+
   return (
     <FondoBase>
 
@@ -60,9 +62,17 @@ export default function PaginaEquivocate() {
 
       <WebView
         ref={webViewRef}
+        // 1. Cargamos el archivo que tiene la Web Speech API
         source={require('../../assets/reconocedorVoz.html')}
+        
+        // 2. RECIBIMOS lo que el HTML escucha (esto activa el poema)
         onMessage={manejarMensajeWebView}
-        style={{ width: 0, height: 0 }}
+        
+        // 3. CONFIGURACIÓN para que Android no bloquee el micro
+        style={{ width: 1, height: 1, opacity: 0, position: 'absolute' }} 
+        originWhitelist={['*']}
+        allowsInlineMediaPlayback={true}
+        mediaPlaybackRequiresUserAction={false}
       />
 
     </FondoBase>

@@ -9,7 +9,7 @@ export const CARACTERES_POR_REVELADO = 3;
 export const VELOCIDAD_REVELADO_MS = 500;
 
 export const SEGUNDOS_CUENTA_REGRESIVA = 5;
-export const INTERVALO_CAMBIO_LETRAS_MS = 3000;
+export const INTERVALO_CAMBIO_LETRAS_MS = 500;
 
 export const POSICIONES_ALREDEDOR_RECTANGULO = [
   { top: 20,  left: 20,  rotacion: -25 },
