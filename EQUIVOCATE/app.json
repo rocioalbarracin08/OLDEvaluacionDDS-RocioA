@@ -12,8 +12,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "Allow $(PRODUCT_NAME) to use speech recognition.",
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone."
+        "NSSpeechRecognitionUsageDescription": "Esta app necesita reconocer tu voz para el juego.",
+        "NSMicrophoneUsageDescription": "Necesitamos acceso al micrófono para que puedas recitar el poema."
       }
     },
     "android": {
@@ -26,10 +26,13 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "package": "com.rocioalbarracin.EQUIVOCATE"
     },
+    
+    
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
@@ -47,8 +50,7 @@
             "backgroundColor": "#000000"
           }
         }
-      ],
-      "expo-speech-recognition"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

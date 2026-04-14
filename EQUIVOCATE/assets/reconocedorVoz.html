@@ -20,7 +20,7 @@
 
         window.addEventListener('message', (event) => {
             try {
-                const data = JSON.parse(event.data);
+                const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
                 if (data.accion === 'iniciar') {
                     activo = true;
                     recognition.start();
@@ -34,17 +34,21 @@
         });
 
         recognition.onresult = (event) => {
-            // LOG DE SALIDA
-            console.log("HTML -> Enviando a RN:", transcripcion);
-            
-            // Solo nos interesa el último fragmento escuchado para que la trampa sea precisa
-            const resultIndex = event.resultIndex;
-            const transcripcion = event.results[resultIndex][0].transcript;
-
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-                tipo: 'resultado',
-                texto: transcripcion.toLowerCase()
-            }));
+            try {
+                // Tomar el último resultado disponible (interim o final)
+                const lastResult = event.results[event.results.length - 1];
+                const transcripcion = (lastResult && lastResult[0] && lastResult[0].transcript) ? lastResult[0].transcript : '';
+                
+                // LOG DE SALIDA
+                console.log("HTML -> Enviando a RN:", transcripcion);
+                
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                    tipo: 'resultado',
+                    texto: transcripcion.toLowerCase()
+                }));
+            } catch (e) {
+                console.error('Error en onresult:', e);
+            }
         };
 
         recognition.onend = () => {
@@ -53,7 +57,7 @@
                 try {
                     recognition.start();
                 } catch (e) {
-                    console.log("Reintentando inicio de voz...");
+                    console.log("Reintentando inicio de voz...", e);
                 }
             }
         };

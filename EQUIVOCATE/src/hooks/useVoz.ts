@@ -1,89 +1,82 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-const MILISEGUNDOS_SILENCIO = 1500; // Aumentado un poco para dar margen al hablar
+const MILISEGUNDOS_SILENCIO = 1500;
 
-interface ConfiguracionVoz {
-  letrasProhibidas: string[];
-  estaActivo: boolean;
-  onEmpezarAHablar: () => void;
-  onDejarDeHablar: () => void;
-  onLetraProhibidaDetectada: () => void;
-}
-
-export function useVoz({
-  letrasProhibidas,
-  estaActivo,
-  onEmpezarAHablar,
-  onDejarDeHablar,
-  onLetraProhibidaDetectada,
-}: ConfiguracionVoz) {
+export function useVoz({ letrasProhibidas, estaActivo, onEmpezarAHablar, onDejarDeHablar, onLetraProhibidaDetectada, letrasDistintasRequeridas = 2 }: any) {
   const timeoutSilencioRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const webViewRef = useRef<any>(null);
+  const letrasRef = useRef(letrasProhibidas || []);
+  const letrasDetectadasRef = useRef<Set<string>>(new Set());
+  const estaHablandoRef = useRef(false);
 
-  // Mantenemos una referencia actualizada de las letras prohibidas
-  // para que el callback de la WebView siempre las vea sin reiniciarse
-  const letrasRef = useRef(letrasProhibidas);
-  useEffect(() => {
-    letrasRef.current = letrasProhibidas;
-  }, [letrasProhibidas]);
+  useEffect(() => { letrasRef.current = letrasProhibidas || []; }, [letrasProhibidas]);
+
+  const limpiarBuffer = useCallback((callOnDejar = true) => {
+    if (timeoutSilencioRef.current) { clearTimeout(timeoutSilencioRef.current); timeoutSilencioRef.current = null; }
+    letrasDetectadasRef.current.clear();
+    estaHablandoRef.current = false;
+    if (callOnDejar) onDejarDeHablar();
+  }, [onDejarDeHablar]);
+
+  const reiniciarSilencio = useCallback(() => {
+    if (timeoutSilencioRef.current) clearTimeout(timeoutSilencioRef.current);
+    timeoutSilencioRef.current = setTimeout(() => { limpiarBuffer(true); }, MILISEGUNDOS_SILENCIO);
+  }, [limpiarBuffer]);
 
   const manejarMensajeWebView = useCallback((evento: any) => {
     try {
-      const datos = JSON.parse(evento.nativeEvent.data);
+      const raw = evento?.nativeEvent?.data;
+      console.log('[useVoz] raw message from WebView:', raw);
+      const datos = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      console.log('[useVoz] parsed:', datos);
+      if (!datos || datos.tipo !== 'resultado') return;
 
-      // LOG DE ENTRADA
-      console.log("RN <- Recibido de WebView:", datos);
+      const texto = (datos.texto || '').toUpperCase();
+      console.log('[useVoz] mensaje recibido:', texto);
 
-      if (datos.tipo === 'resultado') {
-        const textoDetectado = datos.texto.toUpperCase();
-        console.log('🗣️ Escuchado:', textoDetectado);
+      const tieneProhibida = letrasRef.current.some((lp: string) => texto.includes(lp.toUpperCase()));
+      if (tieneProhibida) {
+        limpiarBuffer(false);
+        onLetraProhibidaDetectada();
+        return;
+      }
 
-        // 1. Iniciar revelado del poema
+      const letras = texto.match(/[A-ZÁÉÍÓÚÜÑ]/g) || [];
+      letras.forEach((ch: string) => letrasDetectadasRef.current.add(ch));
+
+      reiniciarSilencio();
+
+      if (!estaHablandoRef.current && letrasDetectadasRef.current.size >= letrasDistintasRequeridas) {
+        estaHablandoRef.current = true;
+        letrasDetectadasRef.current.clear();
+        console.log('[useVoz] activar empezar a hablar');
         onEmpezarAHablar();
-
-        // 2. Comprobar si dijo una letra prohibida
-        const tieneLetraTrampa = letrasRef.current.some((letra) =>
-          textoDetectado.includes(letra.toUpperCase())
-        );
-
-        if (tieneLetraTrampa) {
-          console.log('¡PERDISTE! Letra prohibida detectada.');
-          onLetraProhibidaDetectada();
-        }
-
-        // 3. Reiniciar el temporizador de silencio
-        if (timeoutSilencioRef.current) clearTimeout(timeoutSilencioRef.current);
-        
-        timeoutSilencioRef.current = setTimeout(() => {
-          console.log('Silencio detectado');
-          onDejarDeHablar();
-        }, MILISEGUNDOS_SILENCIO);
       }
     } catch (e) {
-      console.error('Error en el mensaje de voz:', e);
+      console.error('useVoz: error parseando mensaje', e);
     }
-  }, [onEmpezarAHablar, onDejarDeHablar, onLetraProhibidaDetectada]);
+  }, [onEmpezarAHablar, onLetraProhibidaDetectada, limpiarBuffer, reiniciarSilencio, letrasDistintasRequeridas]);
 
   useEffect(() => {
     if (!webViewRef.current) return;
-
-    const accion = estaActivo ? 'iniciar' : 'detener';
-
-    // LOG DE INYECCIÓN
-    console.log(`RN -> Inyectando acción: ${accion}`);
-    
-    // Inyectamos el comando a la WebView
-    const script = `
-      window.postMessage(JSON.stringify({ accion: '${accion}' }), '*');
-      true;
-    `;
-    webViewRef.current.injectJavaScript(script);
-
-    // Si se apaga el micro manualmente, limpiamos el timer
-    if (!estaActivo && timeoutSilencioRef.current) {
-      clearTimeout(timeoutSilencioRef.current);
+    const payload = JSON.stringify({ accion: estaActivo ? 'iniciar' : 'detener' });
+    // usar postMessage del WebView (más confiable que inyectar script)
+    try {
+      if (webViewRef.current.postMessage) {
+        webViewRef.current.postMessage(payload);
+        console.log('[useVoz] enviado payload a WebView via postMessage:', payload);
+      } else {
+        // fallback: inject JS that dispatches event inside the webview
+        const script = `window.dispatchEvent(new MessageEvent('message', { data: '${payload}' })); true;`;
+        webViewRef.current.injectJavaScript && webViewRef.current.injectJavaScript(script);
+        console.log('[useVoz] enviado payload a WebView via injectJavaScript fallback');
+      }
+    } catch (e) {
+      console.error('[useVoz] error enviando payload a WebView', e);
     }
-  }, [estaActivo]);
+
+    if (!estaActivo) limpiarBuffer(false);
+  }, [estaActivo, limpiarBuffer]);
 
   return { webViewRef, manejarMensajeWebView };
 }
