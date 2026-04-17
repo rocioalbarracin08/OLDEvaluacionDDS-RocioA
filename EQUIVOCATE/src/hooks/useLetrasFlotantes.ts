@@ -8,61 +8,68 @@ import {
 } from '../datos/configuracionNiveles';
 
 export type LetraFlotante = {
-  id: number;
-  letra: string;
-  top: number;
-  left: number;
+  id:       number;
+  letra:    string;
+  top:      number;
+  left:     number;
   rotacion: number;
 };
 
-export function useLetrasFlotantes(letrasProhibidas: string[] = [], cantidad = 6) {
-  const [letrasActivas, setLetrasActivas] = useState<LetraFlotante[]>(() => {
-    // inicio aleatorio
-    const inicial = letrasProhibidas && letrasProhibidas.length
-      ? generarLetrasAleatorias(letrasProhibidas, cantidad)
-      : elegirLetrasAleatorias(cantidad).map((letra, i) => {
-          const pos = POSICIONES_ALREDEDOR_RECTANGULO[i % POSICIONES_ALREDEDOR_RECTANGULO.length];
-          return { id: i, letra, top: pos.top, left: pos.left, rotacion: pos.rotacion };
-        });
-    return inicial;
-  });
+// Genera un set nuevo mezclando letras Y posiciones de forma independiente
+function nuevoSet(letrasProhibidas: string[], cantidad: number, semilla = 0): LetraFlotante[] {
+  if (letrasProhibidas.length) {
+    // generarLetrasAleatorias ya mezcla ambas listas
+    return generarLetrasAleatorias(letrasProhibidas, cantidad).map((l, i) => ({
+      ...l,
+      id: semilla * 100 + i,
+    }));
+  }
+  // sin letras prohibidas: pool completamente aleatorio
+  const letras     = elegirLetrasAleatorias(cantidad);
+  const posiciones = [...POSICIONES_ALREDEDOR_RECTANGULO].sort(() => Math.random() - 0.5);
+  return letras.map((letra, i) => ({
+    id:       semilla * 100 + i,
+    letra,
+    top:      posiciones[i % posiciones.length].top,
+    left:     posiciones[i % posiciones.length].left,
+    rotacion: posiciones[i % posiciones.length].rotacion,
+  }));
+}
 
-  const opacidadRef = useRef(new Animated.Value(1)).current;
+export function useLetrasFlotantes(letrasProhibidas: string[] = [], cantidad = 6) {
+  const [letrasActivas, setLetrasActivas] = useState<LetraFlotante[]>(() =>
+    nuevoSet(letrasProhibidas, cantidad, 0)
+  );
+
+  const opacidadRef  = useRef(new Animated.Value(1)).current;
   const intervaloRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const tickIdRef = useRef(0);
+  const tickRef      = useRef(1);
+  // ref para no recrear el intervalo cuando cambian letrasProhibidas
+  const letrasRef    = useRef(letrasProhibidas);
+  useEffect(() => { letrasRef.current = letrasProhibidas; }, [letrasProhibidas]);
 
   useEffect(() => {
     if (intervaloRef.current) clearInterval(intervaloRef.current);
+
     intervaloRef.current = setInterval(() => {
-      // cada tick generamos un set NUEVO y aleatorio (no dependemos de un pool estático)
-      const nuevas = (letrasProhibidas && letrasProhibidas.length)
-        ? generarLetrasAleatorias(letrasProhibidas, cantidad)
-        : elegirLetrasAleatorias(cantidad).map((letra, i) => {
-            const pos = POSICIONES_ALREDEDOR_RECTANGULO[i % POSICIONES_ALREDEDOR_RECTANGULO.length];
-            return { id: tickIdRef.current * 100 + i, letra, top: pos.top, left: pos.left, rotacion: pos.rotacion };
-          });
+      const tick = tickRef.current++;
 
-      tickIdRef.current += 1;
-
-      Animated.sequence([
-        Animated.timing(opacidadRef, { toValue: 0, duration: 120, useNativeDriver: true }),
-        Animated.timing(opacidadRef, { toValue: 1, duration: 120, useNativeDriver: true }),
-      ]).start();
-
-      setLetrasActivas(nuevas);
+      // fade out → actualizar → fade in
+      Animated.timing(opacidadRef, { toValue: 0, duration: 120, useNativeDriver: true })
+        .start(() => {
+          setLetrasActivas(nuevoSet(letrasRef.current, cantidad, tick));
+          Animated.timing(opacidadRef, { toValue: 1, duration: 120, useNativeDriver: true }).start();
+        });
     }, INTERVALO_CAMBIO_LETRAS_MS);
 
     return () => {
       if (intervaloRef.current) { clearInterval(intervaloRef.current); intervaloRef.current = null; }
     };
-  }, [letrasProhibidas, cantidad, opacidadRef]);
+  }, [cantidad, opacidadRef]); // no depende de letrasProhibidas — usa la ref
 
-  return { letrasActivas, opacidadRef, forzarActualizar: () => {
-    const pool = (letrasProhibidas && letrasProhibidas.length) ? generarLetrasAleatorias(letrasProhibidas, cantidad) :
-      elegirLetrasAleatorias(cantidad).map((letra, i) => {
-        const pos = POSICIONES_ALREDEDOR_RECTANGULO[i % POSICIONES_ALREDEDOR_RECTANGULO.length];
-        return { id: Date.now() + i, letra, top: pos.top, left: pos.left, rotacion: pos.rotacion };
-      });
-    setLetrasActivas(pool);
-  }};
+  const forzarActualizar = () => {
+    setLetrasActivas(nuevoSet(letrasRef.current, cantidad, Date.now()));
+  };
+
+  return { letrasActivas, opacidadRef, forzarActualizar };
 }

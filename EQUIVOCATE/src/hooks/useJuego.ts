@@ -1,13 +1,15 @@
 import { useCallback, useState } from 'react';
 import { obtenerLetrasTrampaIniciales } from '../datos/configuracionNiveles';
 import { usePoema } from './usePoema';
-import { useVoz } from './useVoz';
+import { useVoz }   from './useVoz';
 
 export function useJuego() {
-  const [juegoIniciado, setJuegoIniciado]       = useState(false);
-  const [estaEscuchando, setEstaEscuchando]     = useState(false);
-  const [huboErrorTrampa, setHuboErrorTrampa]   = useState(false);
-  const [letrasProhibidas, setLetrasProhibidas] = useState<string[]>(obtenerLetrasTrampaIniciales());
+  const [juegoIniciado,    setJuegoIniciado]    = useState(false);
+  const [estaEscuchando,   setEstaEscuchando]   = useState(false);
+  const [huboErrorTrampa,  setHuboErrorTrampa]  = useState(false);
+  const [letrasProhibidas, setLetrasProhibidas] = useState<string[]>(
+    obtenerLetrasTrampaIniciales()
+  );
 
   const {
     fragmentoVisible,
@@ -27,7 +29,6 @@ export function useJuego() {
   }, [reiniciar]);
 
   const onEmpezarAHablar = useCallback(() => {
-    // cada vez que el hook de voz confirma, pedimos al poema revelar
     empezarARevelar();
   }, [empezarARevelar]);
 
@@ -35,11 +36,11 @@ export function useJuego() {
     setEstaEscuchando(false);
   }, []);
 
-  const { webViewRef, manejarMensajeWebView } = useVoz({
+  useVoz({
     letrasProhibidas,
-    estaActivo: estaEscuchando,
-    onEmpezarAHablar: onEmpezarAHablar,
-    onDejarDeHablar: onDejarDeHablar,
+    estaActivo:               estaEscuchando,
+    onEmpezarAHablar,
+    onDejarDeHablar,
     onLetraProhibidaDetectada: manejarLetraProhibida,
     letrasDistintasRequeridas: 1,
   });
@@ -67,8 +68,6 @@ export function useJuego() {
     opacidadPoema,
     segundosRestantes,
     letrasProhibidas,
-    webViewRef,
-    manejarMensajeWebView,
     comenzarJuego,
     activarMicrofono,
     desactivarMicrofono,

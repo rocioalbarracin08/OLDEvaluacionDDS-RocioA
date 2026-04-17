@@ -17,31 +17,26 @@ export const POSICIONES_ALREDEDOR_RECTANGULO = [
   { top: 360, left: 150, rotacion: -18 },
 ];
 
-// alfabeto completo
 const TODAS_LAS_LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export const elegirLetrasAleatorias = (cantidad: number): string[] => {
-  const mezcladas = [...TODAS_LAS_LETRAS].sort(() => Math.random() - 0.5);
-  return mezcladas.slice(0, cantidad);
+  return [...TODAS_LAS_LETRAS].sort(() => Math.random() - 0.5).slice(0, cantidad);
 };
 
-// alias: siempre devuelve aleatorias para trampas iniciales
 export const obtenerLetrasTrampaIniciales = (cantidad = 3): string[] => {
   return elegirLetrasAleatorias(cantidad);
 };
 
-// generar objetos de letras (si no hay letrasProhibidas, toma aleatorias)
 export const generarLetrasAleatorias = (letrasProhibidas: string[] = [], cantidad: number) => {
-  const pool = (letrasProhibidas && letrasProhibidas.length) ? letrasProhibidas : elegirLetrasAleatorias(cantidad);
-  const posicionesmezcladas = [...POSICIONES_ALREDEDOR_RECTANGULO]
-    .sort(() => Math.random() - 0.5)
-    .slice(0, cantidad);
+  // antes: pool estático → letras nunca cambiaban, solo la posición
+  const letrasMezcladas = [...letrasProhibidas].sort(() => Math.random() - 0.5).slice(0, cantidad);
+  const posicionesMezcladas = [...POSICIONES_ALREDEDOR_RECTANGULO].sort(() => Math.random() - 0.5).slice(0, cantidad);
 
-  return pool.slice(0, cantidad).map((letra, i) => ({
+  return letrasMezcladas.map((letra, i) => ({
     id:       i,
     letra,
-    top:      posicionesmezcladas[i % posicionesmezcladas.length].top,
-    left:     posicionesmezcladas[i % posicionesmezcladas.length].left,
-    rotacion: posicionesmezcladas[i % posicionesmezcladas.length].rotacion,
+    top:      posicionesMezcladas[i].top,
+    left:     posicionesMezcladas[i].left,
+    rotacion: posicionesMezcladas[i].rotacion,
   }));
 };
